@@ -1,0 +1,37 @@
+{
+  "name": "simple-signalling",
+  "version": "0.1.0",
+  "license": "MIT",
+  "description": "Library for WebRTC signalling through different transports",
+  "main": "lib/index.js",
+  "typings": "lib/index",
+  "scripts": {
+    "prepare": "tsc",
+    "prepare:watch": "npm run prepare -- -w",
+    "test": "mocha --require ts-node/register \"ts/**/*.test.ts\"",
+    "test:watch": "mocha -r source-map-support/register -r ts-node/register \"ts/**/*.test.ts\" --watch --watch-extensions ts",
+    "firebase": "cd firebase && firebase"
+  },
+  "keywords": [
+    "signalling",
+    "webrtc"
+  ],
+  "author": "Vincent den Boer",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/WorldBrain/simple-signalling.git"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@firebase/testing": "^0.11.4",
+    "@types/expect": "^1.20.4",
+    "@types/mocha": "^2.2.44",
+    "@types/node": "^10.12.11",
+    "expect": "^23.5.0",
+    "firebase": "^6.2.4",
+    "firebase-tools": "^7.0.2",
+    "mocha": "^4.0.1",
+    "ts-node": "^7.0.1",
+    "typescript": "^3.3.0"
+  }
+}
