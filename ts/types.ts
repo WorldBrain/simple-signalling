@@ -4,7 +4,11 @@ export interface SignalTransport {
 }
 
 export interface SignalChannel {
-    sendMessage(payload : string) : Promise<void>
+    sendMessage(payload : string, options? : SignalMessageOptions) : Promise<void>
     receiveMessage() : Promise<{ payload : string }>
     release() : Promise<void>
+}
+
+export interface SignalMessageOptions {
+    confirmReception : boolean
 }

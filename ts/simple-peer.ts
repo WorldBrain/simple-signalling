@@ -9,6 +9,7 @@ export async function signalSimplePeer(options : { signalChannel : SignalChannel
     })
 
     options.simplePeer.on('signal', (data : any) => {
+        console.log('sending signal')
         options.signalChannel.sendMessage(data)
     })
 
@@ -20,9 +21,11 @@ export async function signalSimplePeer(options : { signalChannel : SignalChannel
         ])
 
         if (next.type === 'connected') {
+            console.log('connected')
             break
         }
 
+        console.log('received signal')
         options.simplePeer.signal(next.data)
     }
 }

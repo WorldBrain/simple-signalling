@@ -25,3 +25,34 @@ WARNING: All illegal access operations will be denied in a future release
 
 [debug] [2019-07-05T10:52:06.863Z] 12:52:06.862 [main] INFO com.firebase.server.forge.App$ - Listening on port 9000
 
+[debug] [2019-07-15T13:45:34.513Z] ----------------------------------------------------------------------
+[debug] [2019-07-15T13:45:34.515Z] Command:       /home/vincent/.nvm/versions/node/v8.16.0/bin/node /home/vincent/Documents/Develop/Web/WorldBrain/storex-workspace/packages/simple-signalling/node_modules/.bin/firebase emulators:start --only database
+[debug] [2019-07-15T13:45:34.516Z] CLI Version:   7.1.0
+[debug] [2019-07-15T13:45:34.516Z] Platform:      linux
+[debug] [2019-07-15T13:45:34.516Z] Node Version:  v8.16.0
+[debug] [2019-07-15T13:45:34.516Z] Time:          Mon Jul 15 2019 15:45:34 GMT+0200 (CEST)
+[debug] [2019-07-15T13:45:34.516Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2019-07-15T13:45:34.529Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2019-07-15T13:45:34.530Z] > authorizing via signed-in user
+[debug] [2019-07-15T13:45:34.531Z] > refreshing access token with scopes: ["email","https://www.googleapis.com/auth/cloud-platform","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","openid"]
+[debug] [2019-07-15T13:45:34.531Z] >>> HTTP REQUEST POST https://www.googleapis.com/oauth2/v3/token  
+ <request body omitted>
+[debug] [2019-07-15T13:45:34.707Z] <<< HTTP RESPONSE 200
+[debug] [2019-07-15T13:45:34.722Z] >>> HTTP REQUEST GET https://firebase.googleapis.com/v1beta1/projects/storex-89b19  
+ 
+[debug] [2019-07-15T13:45:35.093Z] <<< HTTP RESPONSE 200
+[info] i  Starting emulators: ["database"]
+[debug] [2019-07-15T13:45:35.126Z] Starting emulator database with args {"host":"localhost","port":9000}
+[info] i  database: Logging to database-debug.log
+[debug] [2019-07-15T13:45:35.850Z] WARNING: An illegal reflective access operation has occurred
+WARNING: Illegal reflective access by io.netty.util.internal.ReflectionUtil (file:/home/vincent/.cache/firebase/emulators/firebase-database-emulator-v4.0.0.jar) to field sun.nio.ch.SelectorImpl.selectedKeys
+WARNING: Please consider reporting this to the maintainers of io.netty.util.internal.ReflectionUtil
+WARNING: Use --illegal-access=warn to enable warnings of further illegal reflective access operations
+WARNING: All illegal access operations will be denied in a future release
+
+[debug] [2019-07-15T13:45:36.464Z] 15:45:36.463 [NamespaceSystem-akka.actor.default-dispatcher-2] INFO akka.event.slf4j.Slf4jLogger - Slf4jLogger started
+
+[debug] [2019-07-15T13:45:36.611Z] 15:45:36.611 [main] INFO com.firebase.server.forge.App$ - Listening on port 9000
+
+[info] ✔  database: Emulator started at http://localhost:9000
