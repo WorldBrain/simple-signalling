@@ -16,7 +16,8 @@ describe('Firebase signalling', () => {
                             "$id": {
                                 ".read": true,
                                 ".write": true,
-                                ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('updated').val() === now"
+                                ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('updated').val() === now",
+                                ".indexOn": ["updated"]
                             }
                         }
                     }

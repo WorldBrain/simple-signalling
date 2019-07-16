@@ -7,6 +7,7 @@ export class FirebaseSignalTransport implements SignalTransport {
 
     async allocateChannel() : Promise<{ initialMessage : string }> {
         const ref = this.options.database.ref(this.options.collectionName).push({
+            type: 'initial',
             deviceId: 'none',
             payload: '',
             updated: firebase.database.ServerValue.TIMESTAMP,
@@ -29,7 +30,6 @@ export class FirebaseSignalTransport implements SignalTransport {
 }
 
 export class FirebaseSignalChannel implements SignalChannel {
-    private receivedFirstValue = false
     private receivedMessages : Array<{ promise : Promise<string>, resolve : (payload : string) => void }> = []
 
     constructor(private options : { channelRef : firebase.database.Reference, deviceId : string }) {
@@ -39,6 +39,7 @@ export class FirebaseSignalChannel implements SignalChannel {
 
     async sendMessage(payload : string) : Promise<void> {
         await this.options.channelRef.set({
+            type: 'message',
             payload,
             updated: firebase.database.ServerValue.TIMESTAMP,
             deviceId: this.options.deviceId,
@@ -46,11 +47,12 @@ export class FirebaseSignalChannel implements SignalChannel {
     }
 
     async receiveMessage() : Promise<{ payload : string }> {
-        const promise = this.receivedMessages.shift()!.promise
+        const promise = this.receivedMessages[0]!.promise
+        const payload = await promise
         if (!this.receivedMessages.length) {
             this._pushNewMessageEntry()
         }
-        return { payload: await promise }
+        return { payload }
     }
 
     async release() {
@@ -58,13 +60,8 @@ export class FirebaseSignalChannel implements SignalChannel {
     }
 
     _processMessage = (snapshot : firebase.database.DataSnapshot) => {
-        if (!this.receivedFirstValue) {
-            this.receivedFirstValue = true
-            return
-        }
-        
         const message = snapshot.val()
-        if (message.deviceId === this.options.deviceId) {
+        if (message.deviceId === this.options.deviceId || message.payload === '') {
             return
         }
 
