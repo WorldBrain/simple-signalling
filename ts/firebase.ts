@@ -1,17 +1,19 @@
 import * as firebase from 'firebase'
-import { SignalTransport, SignalChannel } from './types';
+import { SignalTransport, SignalChannel, SignalMessageOptions } from './types';
 
 export class FirebaseSignalTransport implements SignalTransport {
     constructor(private options : { database : firebase.database.Database, collectionName : string }) {
     }
 
     async allocateChannel() : Promise<{ initialMessage : string }> {
-        const ref = this.options.database.ref(this.options.collectionName).push({
+        const message : FirebaseSignalMessage = {
             type: 'initial',
             deviceId: 'none',
             payload: '',
+            confirm: false,
             updated: firebase.database.ServerValue.TIMESTAMP,
-        })
+        }
+        const ref = this.options.database.ref(this.options.collectionName).push(message)
         return { initialMessage: `firebase:channel:${this.options.collectionName}:${ref.key}` }
     }
 
@@ -29,28 +31,67 @@ export class FirebaseSignalTransport implements SignalTransport {
     }
 }
 
+interface FirebaseSignalMessage {
+    type: 'initial' | 'message' | 'confirmation'
+    payload: string,
+    confirm: boolean,
+    updated: any, // Firebase SDK doesn't provide types  :(
+    deviceId: string
+}
+interface FirebaseReceivedMessageInfo {
+    payload : string
+    confirm : boolean
+}
+interface ResolvablePromise<T> {
+    promise : Promise<T>;
+    resolve : (info : T) => void
+}
+
 export class FirebaseSignalChannel implements SignalChannel {
-    private receivedMessages : Array<{ promise : Promise<string>, resolve : (payload : string) => void }> = []
+    private receivedMessages : Array<ResolvablePromise<FirebaseReceivedMessageInfo>> = []
+    private confirmationPromise?: ResolvablePromise<void>
 
     constructor(private options : { channelRef : firebase.database.Reference, deviceId : string }) {
         options.channelRef.on('value', this._processMessage)
         this._pushNewMessageEntry()
     }
 
-    async sendMessage(payload : string) : Promise<void> {
-        await this.options.channelRef.set({
+    async sendMessage(payload : string, options : SignalMessageOptions) : Promise<void> {
+        const message : FirebaseSignalMessage = {
             type: 'message',
+            confirm: !!(options && options.confirmReception),
             payload,
             updated: firebase.database.ServerValue.TIMESTAMP,
             deviceId: this.options.deviceId,
-        })
+        }
+        this.confirmationPromise = this._createResolvablePromise<void>()
+        if (!(options && options.confirmReception)) {
+            this.confirmationPromise.resolve()
+        }
+        await this.options.channelRef.set(message)
+        await this.confirmationPromise.promise
+    }
+
+    async _sendConfirmation() : Promise<void> {
+        const message : FirebaseSignalMessage = {
+            type: 'confirmation',
+            confirm: false,
+            payload: '',
+            updated: firebase.database.ServerValue.TIMESTAMP,
+            deviceId: this.options.deviceId,
+        }
+        await this.options.channelRef.set(message)
     }
 
     async receiveMessage() : Promise<{ payload : string }> {
         const promise = this.receivedMessages[0]!.promise
-        const payload = await promise
+        const { payload, confirm } = await promise
+        this.receivedMessages.shift()
         if (!this.receivedMessages.length) {
             this._pushNewMessageEntry()
+        }
+        if (confirm) {
+            await this._sendConfirmation()
         }
         return { payload }
     }
@@ -60,23 +101,29 @@ export class FirebaseSignalChannel implements SignalChannel {
     }
 
     _processMessage = (snapshot : firebase.database.DataSnapshot) => {
-        const message = snapshot.val()
-        if (message.deviceId === this.options.deviceId || message.payload === '') {
+        const message : FirebaseSignalMessage = snapshot.val()
+        if (message.deviceId === this.options.deviceId) {
             return
         }
 
-        this.receivedMessages[0].resolve(message.payload)
+        if (message.type === 'message') {
+            this.receivedMessages[0].resolve(message)
+        } else if (message.type === 'confirmation') {
+            if (this.confirmationPromise) {
+                this.confirmationPromise.resolve()
+            }
+        }
     }
 
-    _createMessageEntry() {
-        let resolve! : (payload : string) => void
-        const promise : Promise<string> = new Promise(r => {
+    _createResolvablePromise<T>() {
+        let resolve! : (value : T) => void
+        const promise : Promise<T> = new Promise(r => {
             resolve = r
         })
         return { promise, resolve }
     }
 
     _pushNewMessageEntry() {
-        this.receivedMessages.push(this._createMessageEntry())
+        this.receivedMessages.push(this._createResolvablePromise<FirebaseReceivedMessageInfo>())
     }
 }
