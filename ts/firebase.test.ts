@@ -25,7 +25,10 @@ describe('Firebase signalling', () => {
             })
 
             return {
-                signalTransportFactory: () => new FirebaseSignalTransport({ database: app.database(), collectionName: 'signalling' })
+                signalTransportFactory: () => new FirebaseSignalTransport({ database: app.database(), collectionName: 'signalling' }),
+                cleanup: async () => {
+                    await app.delete()
+                }
             }
         }
     })

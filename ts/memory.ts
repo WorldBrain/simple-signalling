@@ -1,12 +1,13 @@
 import { SignalTransport, SignalChannel, SignalMessageOptions } from "./types";
 import { EventEmitter } from "events";
+import { MessageQueue } from "./utils";
 
 // WARNING: Obviously don't use this in production. Aside from being useless
 // for anything else than (manual and automated) testing, it contains
 // security issues and memory leaks. Have fun!
 
 interface SignalBuffer {
-    messages: string[]
+    messageQueue: MessageQueue<string>
     events : EventEmitter
 }
 
@@ -17,12 +18,12 @@ export class MemorySignalTransportManager {
         return new MemorySignalTransport({ manager: this })
     }
 
-    createBuffer() : { initialMessage : string } {
-        this.buffers.push({ messages: [], events: new EventEmitter() })
+    _createBuffer() : { initialMessage : string } {
+        this.buffers.push({ messageQueue: new MessageQueue<string>(), events: new EventEmitter() })
         return { initialMessage: `memory:${this.buffers.length - 1}` }
     }
 
-    getBuffer(options : { initialMessage : string }) : SignalBuffer {
+    _getBuffer(options : { initialMessage : string }) : SignalBuffer {
         const [type, channelIndex] = options.initialMessage.split(':')
         if (type !== 'memory') {
             throw new Error(`Tried to open a MemorySignalChannel with faulty initialMessage: ${options.initialMessage}`)
@@ -37,11 +38,11 @@ export class MemorySignalTransport implements SignalTransport {
     }
 
     async allocateChannel() : Promise<{ initialMessage : string }> {
-        return this.options.manager.createBuffer()
+        return this.options.manager._createBuffer()
     }
 
     async openChannel(options : { deviceId : string, initialMessage? : string }) : Promise<SignalChannel> {
-        const buffer = this.options.manager.getBuffer({ initialMessage: options.initialMessage! });
+        const buffer = this.options.manager._getBuffer({ initialMessage: options.initialMessage! });
         return new MemorySignalChannel({ buffer })
     }
 }
@@ -57,7 +58,7 @@ export class MemorySignalChannel implements SignalChannel {
             buffer.events.once('received', () => resolve())
         }) : Promise.resolve()
 
-        buffer.messages.push(payload)
+        buffer.messageQueue.pushMessage(payload)
         buffer.events.emit('message')
 
         await confirmation
@@ -65,21 +66,9 @@ export class MemorySignalChannel implements SignalChannel {
 
     async receiveMessage() : Promise<{ payload : string }> {
         const { buffer } = this.options
-        const popMessage = () => {
-            const message = buffer.messages.shift()!
-            buffer.events.emit('received')
-            return message
-        }
-
-        if (buffer.messages.length) {
-            return { payload: popMessage() }
-        }
-
-        return new Promise<{ payload: string }>((resolve, reject) => {
-            buffer.events.once('message', () => {
-                resolve({ payload: popMessage() })
-            })
-        })
+        const payload = await buffer.messageQueue.eventuallyPopMessage()!;
+        buffer.events.emit('received')
+        return { payload }
     }
 
     async release() : Promise<void> {

@@ -1,3 +1,4 @@
+import { Resolvable, default as createResolvable } from '@josephg/resolvable'
 import * as firebase from 'firebase'
 import { SignalTransport, SignalChannel, SignalMessageOptions } from './types';
 
@@ -42,14 +43,10 @@ interface FirebaseReceivedMessageInfo {
     payload : string
     confirm : boolean
 }
-interface ResolvablePromise<T> {
-    promise : Promise<T>;
-    resolve : (info : T) => void
-}
 
 export class FirebaseSignalChannel implements SignalChannel {
-    private receivedMessages : Array<ResolvablePromise<FirebaseReceivedMessageInfo>> = []
-    private confirmationPromise?: ResolvablePromise<void>
+    private receivedMessages : Array<Resolvable<FirebaseReceivedMessageInfo>> = []
+    private confirmationPromise?: Resolvable<void>
 
     constructor(private options : { channelRef : firebase.database.Reference, deviceId : string }) {
         options.channelRef.on('value', this._processMessage)
@@ -64,12 +61,12 @@ export class FirebaseSignalChannel implements SignalChannel {
             updated: firebase.database.ServerValue.TIMESTAMP,
             deviceId: this.options.deviceId,
         }
-        this.confirmationPromise = this._createResolvablePromise<void>()
+        this.confirmationPromise = createResolvable<void>()
         if (!(options && options.confirmReception)) {
             this.confirmationPromise.resolve()
         }
         await this.options.channelRef.set(message)
-        await this.confirmationPromise.promise
+        await this.confirmationPromise
     }
 
     async _sendConfirmation() : Promise<void> {
@@ -84,7 +81,7 @@ export class FirebaseSignalChannel implements SignalChannel {
     }
 
     async receiveMessage() : Promise<{ payload : string }> {
-        const promise = this.receivedMessages[0]!.promise
+        const promise = this.receivedMessages[0]!
         const { payload, confirm } = await promise
         this.receivedMessages.shift()
         if (!this.receivedMessages.length) {
@@ -115,15 +112,7 @@ export class FirebaseSignalChannel implements SignalChannel {
         }
     }
 
-    _createResolvablePromise<T>() {
-        let resolve! : (value : T) => void
-        const promise : Promise<T> = new Promise(r => {
-            resolve = r
-        })
-        return { promise, resolve }
-    }
-
     _pushNewMessageEntry() {
-        this.receivedMessages.push(this._createResolvablePromise<FirebaseReceivedMessageInfo>())
+        this.receivedMessages.push(createResolvable<FirebaseReceivedMessageInfo>())
     }
 }

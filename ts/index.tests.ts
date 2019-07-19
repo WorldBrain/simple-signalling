@@ -3,6 +3,26 @@ import { SignalTransport, SignalChannel } from './types';
 
 export interface SignalTransportTestSetup {
     signalTransportFactory : () => SignalTransport
+    cleanup? : () => Promise<void>
+}
+
+export interface SignalTransportTestSuiteOptions {
+    setup : () => Promise<SignalTransportTestSetup>
+}
+
+function makeTestFactory(options : SignalTransportTestSuiteOptions) {
+    return (description : string, test : (setup : SignalTransportTestSetup) => Promise<void>) => {
+        it(description, async () => {
+            const setup = await options.setup()
+            try {
+                await test(setup)
+            } finally {
+                if (setup.cleanup) {
+                    await setup.cleanup()
+                }
+            }
+        })
+    }
 }
 
 async function setupChannels(setup : SignalTransportTestSetup) : Promise<[SignalChannel, SignalChannel]> {
@@ -16,9 +36,10 @@ async function setupChannels(setup : SignalTransportTestSetup) : Promise<[Signal
     return [firstChannel, secondChannel]
 }
 
-export async function testSignalTransport(options : { setup : () => Promise<SignalTransportTestSetup>}) {
-    it('should open a channel and exchange messages', async () => {
-        const setup = await options.setup()
+export async function testSignalTransport(options : SignalTransportTestSuiteOptions) {
+    const it = makeTestFactory(options)
+
+    it('should open a channel and exchange messages', async (setup : SignalTransportTestSetup) => {
         const [firstChannel,  secondChannel] = await setupChannels(setup)
         
         await secondChannel.sendMessage('first message')
@@ -30,8 +51,7 @@ export async function testSignalTransport(options : { setup : () => Promise<Sign
         await secondChannel.release()
     })
 
-    it('should wait if listening for messages when there are none yet', async () => {
-        const setup = await options.setup()
+    it('should wait if listening for messages when there are none yet', async (setup : SignalTransportTestSetup) => {
         const [firstChannel,  secondChannel] = await setupChannels(setup)
         
         const promise = firstChannel.receiveMessage()
@@ -42,8 +62,7 @@ export async function testSignalTransport(options : { setup : () => Promise<Sign
         await secondChannel.release()
     })
 
-    it('should be able to wait for a reception confirmation', async () => {
-        const setup = await options.setup()
+    it('should be able to wait for a reception confirmation', async (setup : SignalTransportTestSetup) => {
         const [firstChannel,  secondChannel] = await setupChannels(setup)
         
         const sendPromise = secondChannel.sendMessage('first message', { confirmReception: true })
