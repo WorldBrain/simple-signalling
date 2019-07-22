@@ -7,7 +7,7 @@ import { MessageQueue } from "./utils";
 // security issues and memory leaks. Have fun!
 
 interface SignalBuffer {
-    messageQueue: MessageQueue<{channelId: number, payload: string}>
+    message: {channelId: number, payload: string} | null
     events : EventEmitter
 }
 
@@ -20,7 +20,7 @@ export class MemorySignalTransportManager {
     }
 
     _createBuffer() : { initialMessage : string } {
-        this.buffers.push({ messageQueue: new MessageQueue(), events: new EventEmitter() })
+        this.buffers.push({ message: null, events: new EventEmitter() })
         return { initialMessage: `memory:${this.buffers.length - 1}` }
     }
 
@@ -61,8 +61,7 @@ export class MemorySignalChannel implements SignalChannel {
         }) : Promise.resolve()
         console.log('got confirmation');
         
-
-        buffer.messageQueue.pushMessage({ channelId: this.options.id, payload})
+        buffer.message = { channelId: this.options.id, payload }
         buffer.events.emit('message')
 
         await confirmation
@@ -70,19 +69,20 @@ export class MemorySignalChannel implements SignalChannel {
 
     async receiveMessage() : Promise<{ payload : string }> {
         const { buffer } = this.options
+        const grabMessage = () => {
+            const message = buffer.message
+            buffer.message = null
+            return message
+        }
+
         while (true) {
             console.log('recv iter');
+            if (!buffer.message || buffer.message.channelId === this.options.id) {
+                await new Promise(resolve => buffer.events.once('message', () => resolve()))
+                continue
+            }
+            const message = grabMessage()!
             
-            await buffer.messageQueue.waitForMessage()
-            const message = buffer.messageQueue.peekMessage()!;
-            if (!message) {
-                continue
-            }
-            if (message.channelId === this.options.id) {
-                await buffer.messageQueue.waitForPop()
-                continue
-            }
-            buffer.messageQueue.popMessage()
             console.log('sending confirmation')
             buffer.events.emit('received')
 
