@@ -7,19 +7,20 @@ import { MessageQueue } from "./utils";
 // security issues and memory leaks. Have fun!
 
 interface SignalBuffer {
-    messageQueue: MessageQueue<string>
+    messageQueue: MessageQueue<{channelId: number, payload: string}>
     events : EventEmitter
 }
 
 export class MemorySignalTransportManager {
+    public channelCount = 0
     private buffers : SignalBuffer[] = []
-
+    
     createTransport() : MemorySignalTransport {
         return new MemorySignalTransport({ manager: this })
     }
 
     _createBuffer() : { initialMessage : string } {
-        this.buffers.push({ messageQueue: new MessageQueue<string>(), events: new EventEmitter() })
+        this.buffers.push({ messageQueue: new MessageQueue(), events: new EventEmitter() })
         return { initialMessage: `memory:${this.buffers.length - 1}` }
     }
 
@@ -43,22 +44,25 @@ export class MemorySignalTransport implements SignalTransport {
 
     async openChannel(options : { deviceId : string, initialMessage? : string }) : Promise<SignalChannel> {
         const buffer = this.options.manager._getBuffer({ initialMessage: options.initialMessage! });
-        return new MemorySignalChannel({ buffer })
+        return new MemorySignalChannel({ buffer, id: ++this.options.manager.channelCount })
     }
 }
 
 export class MemorySignalChannel implements SignalChannel {
-    constructor(private options : { buffer : SignalBuffer }) {
+    constructor(private options : { buffer : SignalBuffer, id : number }) {
     }
 
     async sendMessage(payload : string, options? : SignalMessageOptions) : Promise<void> {
+        console.log('send message')
         const { buffer } = this.options
 
         const confirmation = options && options.confirmReception ? new Promise(resolve => {
             buffer.events.once('received', () => resolve())
         }) : Promise.resolve()
+        console.log('got confirmation');
+        
 
-        buffer.messageQueue.pushMessage(payload)
+        buffer.messageQueue.pushMessage({ channelId: this.options.id, payload})
         buffer.events.emit('message')
 
         await confirmation
@@ -66,9 +70,26 @@ export class MemorySignalChannel implements SignalChannel {
 
     async receiveMessage() : Promise<{ payload : string }> {
         const { buffer } = this.options
-        const payload = await buffer.messageQueue.eventuallyPopMessage()!;
-        buffer.events.emit('received')
-        return { payload }
+        while (true) {
+            console.log('recv iter');
+            
+            await buffer.messageQueue.waitForMessage()
+            const message = buffer.messageQueue.peekMessage()!;
+            if (!message) {
+                continue
+            }
+            if (message.channelId === this.options.id) {
+                await buffer.messageQueue.waitForPop()
+                continue
+            }
+            buffer.messageQueue.popMessage()
+            console.log('sending confirmation')
+            buffer.events.emit('received')
+
+            console.log('recv return');
+            
+            return { payload: message.payload }
+        }
     }
 
     async release() : Promise<void> {

@@ -19,7 +19,7 @@ describe('simple-peer connection initiation', () => {
         ]
         await Promise.all([
             signalSimplePeer({ signalChannel: channels[0], simplePeer: peers[0] }),
-            // signalSimplePeer({ signalChannel: channels[1], simplePeer: peers[1] }),
+            signalSimplePeer({ signalChannel: channels[1], simplePeer: peers[1] }),
         ])
         console.log('still alive!')
     })

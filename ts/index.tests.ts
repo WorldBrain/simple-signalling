@@ -62,6 +62,20 @@ export async function testSignalTransport(options : SignalTransportTestSuiteOpti
         await secondChannel.release()
     })
 
+    it('should not deliver messages back to its own channel', async (setup : SignalTransportTestSetup) => {
+        const [firstChannel,  secondChannel] = await setupChannels(setup)
+        
+        const promise = firstChannel.receiveMessage()
+        await firstChannel.sendMessage('first message')
+        expect(await Promise.race([
+            promise,
+            new Promise(resolve => setTimeout(() => resolve('timeout'), 500)),
+        ])).toEqual('timeout')
+        
+        await firstChannel.release()
+        await secondChannel.release()
+    })
+
     it('should be able to wait for a reception confirmation', async (setup : SignalTransportTestSetup) => {
         const [firstChannel,  secondChannel] = await setupChannels(setup)
         
