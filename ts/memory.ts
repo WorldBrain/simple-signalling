@@ -1,6 +1,5 @@
 import { SignalTransport, SignalChannel, SignalMessageOptions } from "./types";
 import { EventEmitter } from "events";
-import { MessageQueue } from "./utils";
 
 // WARNING: Obviously don't use this in production. Aside from being useless
 // for anything else than (manual and automated) testing, it contains
@@ -53,13 +52,13 @@ export class MemorySignalChannel implements SignalChannel {
     }
 
     async sendMessage(payload : string, options? : SignalMessageOptions) : Promise<void> {
-        console.log('send message')
+        // console.log('send message')
         const { buffer } = this.options
 
         const confirmation = options && options.confirmReception ? new Promise(resolve => {
             buffer.events.once('received', () => resolve())
         }) : Promise.resolve()
-        console.log('got confirmation');
+        // console.log('got confirmation');
         
         buffer.message = { channelId: this.options.id, payload }
         buffer.events.emit('message')
@@ -76,17 +75,17 @@ export class MemorySignalChannel implements SignalChannel {
         }
 
         while (true) {
-            console.log('recv iter');
+            // console.log('recv iter');
             if (!buffer.message || buffer.message.channelId === this.options.id) {
                 await new Promise(resolve => buffer.events.once('message', () => resolve()))
                 continue
             }
             const message = grabMessage()!
             
-            console.log('sending confirmation')
+            // console.log('sending confirmation')
             buffer.events.emit('received')
 
-            console.log('recv return');
+            // console.log('recv return');
             
             return { payload: message.payload }
         }

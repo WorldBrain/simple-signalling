@@ -3,18 +3,13 @@ import { default as createResolvable, Resolvable } from '@josephg/resolvable'
 export class MessageQueue<MessageType> {
     private messages : MessageType[] = []
     private pushResolvable = createResolvable()
-    private popResolvable = createResolvable()
-
+    
     async waitForMessage() : Promise<void> {
         if (!this.messages.length) {
             await this.pushResolvable
         }
     }
 
-    async waitForPop() {
-        await this.popResolvable
-    }
-    
     pushMessage(message : MessageType) : void {
         this.messages.push(message)
         this.pushResolvable.resolve()
@@ -23,10 +18,6 @@ export class MessageQueue<MessageType> {
     
     popMessage() : MessageType | undefined {
         const message = this.messages.shift()
-        if (message) {
-            this.popResolvable.resolve()
-            this.popResolvable = createResolvable()
-        }
         return message
     }
 

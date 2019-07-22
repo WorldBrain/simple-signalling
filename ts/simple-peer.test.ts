@@ -21,6 +21,13 @@ describe('simple-peer connection initiation', () => {
             signalSimplePeer({ signalChannel: channels[0], simplePeer: peers[0] }),
             signalSimplePeer({ signalChannel: channels[1], simplePeer: peers[1] }),
         ])
-        console.log('still alive!')
+        
+        const peerOneData = new Promise<any>(resolve => {
+            peers[0].once('data', data => {
+                resolve(data)
+            })
+        })
+        peers[1].send('some data')
+        expect((await peerOneData).toString()).toEqual('some data')
     })
 })
