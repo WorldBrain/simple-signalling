@@ -116,3 +116,14 @@ export class FirebaseSignalChannel implements SignalChannel {
         this.receivedMessages.push(createResolvable<FirebaseReceivedMessageInfo>())
     }
 }
+
+export function getSignallingRules() {
+    return {
+        "$id": {
+            ".read": true,
+            ".write": true,
+            ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('confirm').isBoolean() && newData.child('updated').val() === now",
+            ".indexOn": ["updated"]
+        }
+    }
+}
