@@ -3,11 +3,23 @@ import SimplePeer from 'simple-peer'
 import { SignalChannel } from "./types";
 import { MessageQueue } from './utils';
 
-// let called = 0
+export interface SimplePeerSignallingEvents {
+    receivedIncomingSignal: { signal : string },
+    processingIncomingSignal: { signal : string },
+    queuingOutgoingSignal: { signal : string },
+    sendingOutgoingSignal: { signal : string },
+}
 
-export async function signalSimplePeer(options : { signalChannel : SignalChannel, simplePeer : SimplePeer.Instance }) : Promise<void> {
-    // const processId = ++called
-    const incomingSignalListener = createIncomingSignalListener(options.signalChannel)
+export type SimplePeerSignallingReporter =
+    <EventName extends keyof SimplePeerSignallingEvents>
+    (eventName : EventName, event : SimplePeerSignallingEvents[EventName]) => void
+
+export async function signalSimplePeer(options : {
+    signalChannel : SignalChannel, simplePeer : SimplePeer.Instance,
+    reporter? : SimplePeerSignallingReporter
+}) : Promise<void> {
+    const reporter = options.reporter || (() => {})
+    const incomingSignalListener = createIncomingSignalListener(options.signalChannel, { reporter })
     const outgoingSignalQueue = new MessageQueue<string>()
 
     const connectedPromise = new Promise((resolve) => {
@@ -17,7 +29,9 @@ export async function signalSimplePeer(options : { signalChannel : SignalChannel
     })
 
     const simplePeerSignalHandler = (data : any) => {
-        outgoingSignalQueue.pushMessage(JSON.stringify(data))
+        const signal = JSON.stringify(data)
+        reporter('queuingOutgoingSignal', { signal })
+        outgoingSignalQueue.pushMessage(signal)
     }
 
     options.simplePeer.on('signal', simplePeerSignalHandler)
@@ -39,12 +53,12 @@ export async function signalSimplePeer(options : { signalChannel : SignalChannel
             
             if (next.type === 'incomingSignal') {
                 const signal = incomingSignalListener.messageQueue.popMessage()!
-                // console.log(`processing signal in process ${processId}:`, signal && signal.substr(0, 50), '...')
+                reporter('processingIncomingSignal', { signal })
                 options.simplePeer.signal(JSON.parse(signal))
             } else if (next.type === 'outgoingSignal') {
                 const signal = outgoingSignalQueue.popMessage()
                 if (signal) {
-                    // console.log(`sending signal from process ${processId}:`, signal.substr(0, 50), '...')
+                    reporter('sendingOutgoingSignal', { signal })
                     await options.signalChannel.sendMessage(signal, { confirmReception: true })
                 }
             }
@@ -55,7 +69,7 @@ export async function signalSimplePeer(options : { signalChannel : SignalChannel
     }
 }
 
-const createIncomingSignalListener = (signalChannel : SignalChannel) => {
+const createIncomingSignalListener = (signalChannel : SignalChannel, options : { reporter : SimplePeerSignallingReporter }) => {
     const messageQueue = new MessageQueue<string>()
 
     let running = true
@@ -69,7 +83,7 @@ const createIncomingSignalListener = (signalChannel : SignalChannel) => {
         while (running) {
             await Promise.race([
                 signalChannel.receiveMessage().then(message => {
-                    // console.log('listener received message', message.payload && message.payload.substr(0, 50), '...')
+                    options.reporter('receivedIncomingSignal', { signal: message.payload })
                     messageQueue.pushMessage(message.payload)
                 }),
                 stopPromise
