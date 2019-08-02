@@ -6,13 +6,13 @@ export async function createSignallingFirebaseTestApp() {
     const app = firebase.initializeTestApp({
         databaseName: 'test'
     })
-    await firebase.loadDatabaseRules({
-        databaseName: 'test',
-        rules: JSON.stringify({
-            "rules": {
-                [collectionName]: getSignallingRules()
-            }
-        }),
-    })
+    // await firebase.loadDatabaseRules({
+    //     databaseName: 'test',
+    //     rules: JSON.stringify({
+    //         "rules": {
+    //             [collectionName]: getSignallingRules()
+    //         }
+    //     }),
+    // })
     return { app, collectionName }
 }

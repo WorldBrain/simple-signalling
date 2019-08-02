@@ -1,96 +1,58 @@
-import { Resolvable, default as createResolvable } from '@josephg/resolvable'
+import { EventEmitter } from 'events';
 import * as firebase from 'firebase'
-import { SignalTransport, SignalChannel, SignalMessageOptions } from './types';
+import { SignalTransport, SignalChannel, SignalMessageOptions, SignalChannelEvents, SignalDeviceId } from './types';
+import { getReceiverDeviceId } from './utils';
+
+type FirebaseSignalMessage = string
+interface FirebaseSignalChannelData {
+    updated : typeof firebase.database.ServerValue.TIMESTAMP,
+    firstQueue? : FirebaseSignalMessage[] // cannot overwrite messages, just push
+    secondQueue? : FirebaseSignalMessage[]
+}
 
 export class FirebaseSignalTransport implements SignalTransport {
-    constructor(private options : { database : firebase.database.Database, collectionName : string }) {
+    constructor(private options : {
+        database : firebase.database.Database, collectionName : string,
+    }) {
     }
 
     async allocateChannel() : Promise<{ initialMessage : string }> {
-        const message : FirebaseSignalMessage = {
-            type: 'initial',
-            deviceId: 'none',
-            payload: '',
-            confirm: false,
+        const channelData : FirebaseSignalChannelData = {
             updated: firebase.database.ServerValue.TIMESTAMP,
         }
-        const ref = this.options.database.ref(this.options.collectionName).push(message)
-        return { initialMessage: `firebase:channel:${this.options.collectionName}:${ref.key}` }
+        const ref = this.options.database.ref(this.options.collectionName).push(channelData)
+        return { initialMessage: [ref.key].join(':') }
     }
 
-    async openChannel(options : { deviceId : string, initialMessage? : string }) : Promise<SignalChannel> {
+    async openChannel(options : { deviceId : SignalDeviceId, initialMessage? : string }) : Promise<SignalChannel> {
         if (!options.initialMessage) {
             throw new Error(`Opening a channel without an initial message is not supported yet`)
         }
 
-        const [ transportType, objectType, collectionName, key ] = options.initialMessage.split(':')
-        if (transportType !== 'firebase' || objectType !== 'channel') {
-            throw new Error(`Invalid initialMessage: ${options.initialMessage}`)
-        }
-        const channelRef = this.options.database.ref(collectionName).child(key)
+        const [ key ] = options.initialMessage.split(':')
+        const channelRef = this.options.database.ref(this.options.collectionName).child(key)
         return new FirebaseSignalChannel({ channelRef, deviceId: options.deviceId })
     }
 }
 
-interface FirebaseSignalMessage {
-    type: 'initial' | 'message' | 'confirmation'
-    payload: string,
-    confirm: boolean,
-    updated: any, // Firebase SDK doesn't provide types  :(
-    deviceId: string
-}
-interface FirebaseReceivedMessageInfo {
-    payload : string
-    confirm : boolean
-}
-
 export class FirebaseSignalChannel implements SignalChannel {
-    private receivedMessages : Array<Resolvable<FirebaseReceivedMessageInfo>> = []
-    private confirmationPromise?: Resolvable<void>
+    events = new EventEmitter() as SignalChannelEvents
+    private receiverQueueRef : firebase.database.Reference
 
-    constructor(private options : { channelRef : firebase.database.Reference, deviceId : string }) {
-        options.channelRef.on('value', this._processMessage)
-        this._pushNewMessageEntry()
+    constructor(private options : { channelRef : firebase.database.Reference, deviceId : SignalDeviceId }) {
+        this.receiverQueueRef = options.channelRef.child(`${getReceiverDeviceId(options.deviceId)}Queue`)
+    }
+
+    async connect() {
+        this.options.channelRef.child(`${this.options.deviceId}Queue`).on('child_added', this._processMessage)
     }
 
     async sendMessage(payload : string, options : SignalMessageOptions) : Promise<void> {
-        const message : FirebaseSignalMessage = {
-            type: 'message',
-            confirm: !!(options && options.confirmReception),
-            payload,
-            updated: firebase.database.ServerValue.TIMESTAMP,
-            deviceId: this.options.deviceId,
-        }
-        this.confirmationPromise = createResolvable<void>()
-        if (!(options && options.confirmReception)) {
-            this.confirmationPromise.resolve()
-        }
-        await this.options.channelRef.set(message)
-        await this.confirmationPromise
+        await this._pushToReceiverQueue(payload)
     }
 
-    async _sendConfirmation() : Promise<void> {
-        const message : FirebaseSignalMessage = {
-            type: 'confirmation',
-            confirm: false,
-            payload: '',
-            updated: firebase.database.ServerValue.TIMESTAMP,
-            deviceId: this.options.deviceId,
-        }
-        await this.options.channelRef.set(message)
-    }
-
-    async receiveMessage() : Promise<{ payload : string }> {
-        const promise = this.receivedMessages[0]!
-        const { payload, confirm } = await promise
-        this.receivedMessages.shift()
-        if (!this.receivedMessages.length) {
-            this._pushNewMessageEntry()
-        }
-        if (confirm) {
-            await this._sendConfirmation()
-        }
-        return { payload }
+    async _pushToReceiverQueue(message : FirebaseSignalMessage) {
+        await this.receiverQueueRef.push(message)
     }
 
     async release() {
@@ -99,31 +61,24 @@ export class FirebaseSignalChannel implements SignalChannel {
 
     _processMessage = (snapshot : firebase.database.DataSnapshot) => {
         const message : FirebaseSignalMessage = snapshot.val()
-        if (message.deviceId === this.options.deviceId) {
-            return
-        }
+        this.events.emit('signal', { payload: message })
 
-        if (message.type === 'message') {
-            this.receivedMessages[0].resolve(message)
-        } else if (message.type === 'confirmation') {
-            if (this.confirmationPromise) {
-                this.confirmationPromise.resolve()
-            }
-        }
-    }
-
-    _pushNewMessageEntry() {
-        this.receivedMessages.push(createResolvable<FirebaseReceivedMessageInfo>())
     }
 }
 
 export function getSignallingRules() {
     return {
         "$id": {
-            ".read": true,
-            ".write": true,
-            ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('confirm').isBoolean() && newData.child('updated').val() === now",
-            ".indexOn": ["updated"]
+            // ".read": true,
+            // ".write": true,
+            ".indexOn": ["updated"],
+            ".validate": "newData.child('updated').val() === now",
+
+            // "secret": {
+            //     ".write": "data.val() == null",
+            // }
+
+            // ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('confirm').isBoolean() && newData.child('updated').val() === now",
         }
     }
 }

@@ -23,7 +23,8 @@
   },
   "dependencies": {
     "@josephg/resolvable": "^1.0.0",
-    "events": "^3.0.0"
+    "events": "^3.0.0",
+    "typed-emitter": "^0.1.0"
   },
   "devDependencies": {
     "@firebase/testing": "^0.11.4",

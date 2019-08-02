@@ -1,4 +1,5 @@
 import { default as createResolvable, Resolvable } from '@josephg/resolvable'
+import { SignalDeviceId } from './types';
 
 export class MessageQueue<MessageType> {
     private messages : MessageType[] = []
@@ -29,4 +30,8 @@ export class MessageQueue<MessageType> {
         await this.waitForMessage()
         return this.popMessage()!
     }
+}
+
+export function getReceiverDeviceId(senderDeviceId : SignalDeviceId) : SignalDeviceId {
+    return senderDeviceId === 'first' ? 'second' : 'first'
 }

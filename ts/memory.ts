@@ -1,13 +1,20 @@
-import { SignalTransport, SignalChannel, SignalMessageOptions } from "./types";
+import { SignalTransport, SignalChannel, SignalMessageOptions, SignalChannelEvents, SignalDeviceId } from "./types";
 import { EventEmitter } from "events";
+import TypedEmitter from "typed-emitter";
+import { getReceiverDeviceId } from "./utils";
 
 // WARNING: Obviously don't use this in production. Aside from being useless
 // for anything else than (manual and automated) testing, it contains
 // security issues and memory leaks. Have fun!
 
+type SignalBufferEvents = TypedEmitter<{
+    signal : (event : { payload : string, deviceId : SignalDeviceId }) => void
+}>
+
 interface SignalBuffer {
-    message: {channelId: number, payload: string} | null
-    events : EventEmitter
+    // message: {channelId: number, payload: string} | null
+    events : SignalBufferEvents
+    messages : {[deviceId in 'first' | 'second'] : string[]}
 }
 
 export class MemorySignalTransportManager {
@@ -19,7 +26,7 @@ export class MemorySignalTransportManager {
     }
 
     _createBuffer() : { initialMessage : string } {
-        this.buffers.push({ message: null, events: new EventEmitter() })
+        this.buffers.push({ events: new EventEmitter() as SignalBufferEvents, messages: { first: [], second: [] } })
         return { initialMessage: `memory:${this.buffers.length - 1}` }
     }
 
@@ -41,54 +48,38 @@ export class MemorySignalTransport implements SignalTransport {
         return this.options.manager._createBuffer()
     }
 
-    async openChannel(options : { deviceId : string, initialMessage? : string }) : Promise<SignalChannel> {
+    async openChannel(options : { deviceId : SignalDeviceId, initialMessage? : string }) : Promise<SignalChannel> {
         const buffer = this.options.manager._getBuffer({ initialMessage: options.initialMessage! });
-        return new MemorySignalChannel({ buffer, id: ++this.options.manager.channelCount })
+        return new MemorySignalChannel({ buffer, deviceId: options.deviceId })
     }
 }
 
 export class MemorySignalChannel implements SignalChannel {
-    constructor(private options : { buffer : SignalBuffer, id : number }) {
+    events = new EventEmitter() as SignalChannelEvents
+
+    constructor(private options : { buffer : SignalBuffer, deviceId : SignalDeviceId }) {
+    }
+
+    async connect() {
+        for (const message of this.options.buffer.messages[this.options.deviceId]) {
+            this.events.emit('signal', { payload: message })
+        }
+
+        this.options.buffer.events.on('signal', ({ payload, deviceId: channelId }) => {
+            if (channelId !== this.options.deviceId) {
+                this.events.emit('signal', { payload })
+            }
+        })
     }
 
     async sendMessage(payload : string, options? : SignalMessageOptions) : Promise<void> {
-        // console.log('send message')
         const { buffer } = this.options
+        buffer.messages[getReceiverDeviceId(this.options.deviceId)].push(payload)
 
-        const confirmation = options && options.confirmReception ? new Promise(resolve => {
-            buffer.events.once('received', () => resolve())
-        }) : Promise.resolve()
-        // console.log('got confirmation');
-        
-        buffer.message = { channelId: this.options.id, payload }
-        buffer.events.emit('message')
-
-        await confirmation
-    }
-
-    async receiveMessage() : Promise<{ payload : string }> {
-        const { buffer } = this.options
-        const grabMessage = () => {
-            const message = buffer.message
-            buffer.message = null
-            return message
-        }
-
-        while (true) {
-            // console.log('recv iter');
-            if (!buffer.message || buffer.message.channelId === this.options.id) {
-                await new Promise(resolve => buffer.events.once('message', () => resolve()))
-                continue
-            }
-            const message = grabMessage()!
-            
-            // console.log('sending confirmation')
-            buffer.events.emit('received')
-
-            // console.log('recv return');
-            
-            return { payload: message.payload }
-        }
+        buffer.events.emit('signal', {
+            payload,
+            deviceId: this.options.deviceId
+        })
     }
 
     async release() : Promise<void> {
