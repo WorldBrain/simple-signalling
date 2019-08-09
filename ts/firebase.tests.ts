@@ -6,13 +6,27 @@ export async function createSignallingFirebaseTestApp() {
     const app = firebase.initializeTestApp({
         databaseName: 'test'
     })
+    // console.log(JSON.stringify({
+    //     "rules": {
+    //         [collectionName]: getSignallingRules()
+    //     }
+    // }, null, 4))
+    await firebase.loadDatabaseRules({
+        databaseName: 'test',
+        rules: JSON.stringify({
+            "rules": {
+                [collectionName]: getSignallingRules()
+            }
+        }, null, 4),
+    })
     // await firebase.loadDatabaseRules({
     //     databaseName: 'test',
     //     rules: JSON.stringify({
     //         "rules": {
-    //             [collectionName]: getSignallingRules()
+    //             ".read": true,
+    //             ".write": true,
     //         }
-    //     }),
+    //     }, null, 4),
     // })
     return { app, collectionName }
 }

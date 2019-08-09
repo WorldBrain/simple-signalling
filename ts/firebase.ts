@@ -31,6 +31,7 @@ export class FirebaseSignalTransport implements SignalTransport {
 
         const [ key ] = options.initialMessage.split(':')
         const channelRef = this.options.database.ref(this.options.collectionName).child(key)
+        await channelRef.child('updated').set(firebase.database.ServerValue.TIMESTAMP)
         return new FirebaseSignalChannel({ channelRef, deviceId: options.deviceId })
     }
 }
@@ -48,6 +49,7 @@ export class FirebaseSignalChannel implements SignalChannel {
     }
 
     async sendMessage(payload : string, options : SignalMessageOptions) : Promise<void> {
+        // await this.options.channelRef.child('updated').set(firebase.database.ServerValue.TIMESTAMP)
         await this._pushToReceiverQueue(payload)
     }
 
@@ -57,6 +59,7 @@ export class FirebaseSignalChannel implements SignalChannel {
 
     async release() {
         this.options.channelRef.off('value', this._processMessage)
+        await this.options.channelRef.remove()
     }
 
     _processMessage = (snapshot : firebase.database.DataSnapshot) => {
@@ -67,16 +70,21 @@ export class FirebaseSignalChannel implements SignalChannel {
 }
 
 export function getSignallingRules() {
+    const queueRules = {
+        "$message": {
+            ".validate": "data.val() == null && newData.isString() && newData.val().length < 10240"
+        },
+    }
+
     return {
         "$id": {
-            // ".read": true,
-            // ".write": true,
+            ".read": true,
+            ".write": true,
             ".indexOn": ["updated"],
-            ".validate": "newData.child('updated').val() === now",
+            ".validate": "data.child('updated').val() != null || newData.child('updated').val() == now",
 
-            // "secret": {
-            //     ".write": "data.val() == null",
-            // }
+            "firstQueue": queueRules,
+            "secondQueue": queueRules,
 
             // ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('confirm').isBoolean() && newData.child('updated').val() === now",
         }
