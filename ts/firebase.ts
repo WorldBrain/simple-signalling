@@ -5,7 +5,7 @@ import { getReceiverDeviceId } from './utils';
 
 type FirebaseSignalMessage = string
 interface FirebaseSignalChannelData {
-    updated : typeof firebase.database.ServerValue.TIMESTAMP,
+    created : typeof firebase.database.ServerValue.TIMESTAMP,
     firstQueue? : FirebaseSignalMessage[] // cannot overwrite messages, just push
     secondQueue? : FirebaseSignalMessage[]
 }
@@ -18,7 +18,7 @@ export class FirebaseSignalTransport implements SignalTransport {
 
     async allocateChannel() : Promise<{ initialMessage : string }> {
         const channelData : FirebaseSignalChannelData = {
-            updated: firebase.database.ServerValue.TIMESTAMP,
+            created: firebase.database.ServerValue.TIMESTAMP,
         }
         const ref = this.options.database.ref(this.options.collectionName).push(channelData)
         return { initialMessage: [ref.key].join(':') }
@@ -31,7 +31,7 @@ export class FirebaseSignalTransport implements SignalTransport {
 
         const [ key ] = options.initialMessage.split(':')
         const channelRef = this.options.database.ref(this.options.collectionName).child(key)
-        await channelRef.child('updated').set(firebase.database.ServerValue.TIMESTAMP)
+        await channelRef.child('created').set(firebase.database.ServerValue.TIMESTAMP)
         return new FirebaseSignalChannel({ channelRef, deviceId: options.deviceId })
     }
 }
@@ -49,7 +49,7 @@ export class FirebaseSignalChannel implements SignalChannel {
     }
 
     async sendMessage(payload : string, options : SignalMessageOptions) : Promise<void> {
-        // await this.options.channelRef.child('updated').set(firebase.database.ServerValue.TIMESTAMP)
+        // await this.options.channelRef.child('created').set(firebase.database.ServerValue.TIMESTAMP)
         await this._pushToReceiverQueue(payload)
     }
 
@@ -80,13 +80,13 @@ export function getSignallingRules() {
         "$id": {
             ".read": true,
             ".write": true,
-            ".indexOn": ["updated"],
-            ".validate": "data.child('updated').val() != null || newData.child('updated').val() == now",
+            ".indexOn": ["created"],
+            ".validate": "data.child('created').val() != null || newData.child('created').val() == now",
 
             "firstQueue": queueRules,
             "secondQueue": queueRules,
 
-            // ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('confirm').isBoolean() && newData.child('updated').val() === now",
+            // ".validate": "newData.child('payload').isString() && newData.child('deviceId').isString() && newData.child('type').val().matches(/^initial|message|confirmation$/) && newData.child('confirm').isBoolean() && newData.child('created').val() === now",
         }
     }
 }

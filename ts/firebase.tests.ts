@@ -3,8 +3,9 @@ import { getSignallingRules } from './firebase';
 
 export async function createSignallingFirebaseTestApp() {
     const collectionName = 'signalling'
+    const databaseName = `test-${Date.now()}`
     const app = firebase.initializeTestApp({
-        databaseName: 'test'
+        databaseName
     })
     // console.log(JSON.stringify({
     //     "rules": {
@@ -28,5 +29,5 @@ export async function createSignallingFirebaseTestApp() {
     //         }
     //     }, null, 4),
     // })
-    return { app, collectionName }
+    return { app, databaseName, collectionName }
 }

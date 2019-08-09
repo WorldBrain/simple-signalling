@@ -8,8 +8,11 @@ describe('Firebase signalling', () => {
             const { app, collectionName } = await createSignallingFirebaseTestApp()
 
             return {
-                signalTransportFactory: () => new FirebaseSignalTransport({ database: app.database(), collectionName }),
+                signalTransportFactory: () => {
+                    return new FirebaseSignalTransport({ database: app.database(), collectionName })
+                },
                 cleanup: async () => {
+                    // await app.auth().signOut()
                     await app.delete()
                 }
             }
