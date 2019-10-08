@@ -1,13 +1,14 @@
 import createResolvable from '@josephg/resolvable'
 import SimplePeer from 'simple-peer'
 import { SignalChannel } from "./types";
-import { MessageQueue } from './utils';
 
 export interface SimplePeerSignallingEvents {
-    receivedIncomingSignal: { signal : string },
-    processingIncomingSignal: { signal : string },
-    queuingOutgoingSignal: { signal : string },
-    sendingOutgoingSignal: { signal : string },
+    start: {},
+    receivedIncomingSignal: { signal : any },
+    processingIncomingSignal: { signal : any },
+    queuingOutgoingSignal: { signal : any },
+    sendingOutgoingSignal: { signal : any },
+    connected: {},
 }
 
 export type SimplePeerSignallingReporter =
@@ -19,16 +20,22 @@ export async function signalSimplePeer(options : {
     reporter? : SimplePeerSignallingReporter
 }) : Promise<void> {
     const reporter = options.reporter || (() => {})
+    reporter('start', {})
 
     const waitUntilConnected = createResolvable()
     options.simplePeer.on('signal', (data : any) => {
+        reporter('sendingOutgoingSignal', { signal: data })
         options.signalChannel.sendMessage(JSON.stringify(data))
     })
     options.simplePeer.on('connect', () => {
+        reporter('connected', {})
         waitUntilConnected.resolve()
     })
     options.signalChannel.events.on('signal', ({ payload }) => {
-        options.simplePeer.signal(JSON.parse(payload))
+        const signal = JSON.parse(payload)
+        reporter('receivedIncomingSignal', { signal })
+        reporter('processingIncomingSignal', { signal })
+        options.simplePeer.signal(signal)
     })
 
     await waitUntilConnected

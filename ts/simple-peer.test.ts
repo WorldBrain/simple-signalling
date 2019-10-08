@@ -35,41 +35,43 @@ async function runSimplePeerTest(options : { transports : [SignalTransport, Sign
     expect((await peerOneData).toString()).toEqual('some data')
 }
 
-describe('simple-peer connection initiation', () => {
-    it('should be able to establish a simple-peer WebRTC connection using an in-memory signal channel', async () => {
-        const transportManager = new MemorySignalTransportManager()
-        const transports : [SignalTransport, SignalTransport] = [transportManager.createTransport(), transportManager.createTransport()]
-        await runSimplePeerTest({ transports })
-    })
-    
-    it('should be able to establish a simple-peer WebRTC connection using an emulated Firebase channel', async () => {
-        const { app: firebaseApp, collectionName } = await createSignallingFirebaseTestApp()
-        try {
-            const createTransport = () => new FirebaseSignalTransport({ database: firebaseApp.database(), collectionName })
-            const transports : [SignalTransport, SignalTransport] = [
-                createTransport(),
-                createTransport(),
-            ]
+if (process.env.RUN_FIREBASE_TESTS === 'true') {
+    describe('simple-peer connection initiation', () => {
+        it('should be able to establish a simple-peer WebRTC connection using an in-memory signal channel', async () => {
+            const transportManager = new MemorySignalTransportManager()
+            const transports : [SignalTransport, SignalTransport] = [transportManager.createTransport(), transportManager.createTransport()]
             await runSimplePeerTest({ transports })
-        } finally {
-            await firebaseApp.delete()
-        }
-    })
+        })
+        
+        it('should be able to establish a simple-peer WebRTC connection using an emulated Firebase channel', async () => {
+            const { app: firebaseApp, collectionName } = await createSignallingFirebaseTestApp()
+            try {
+                const createTransport = () => new FirebaseSignalTransport({ database: firebaseApp.database(), collectionName })
+                const transports : [SignalTransport, SignalTransport] = [
+                    createTransport(),
+                    createTransport(),
+                ]
+                await runSimplePeerTest({ transports })
+            } finally {
+                await firebaseApp.delete()
+            }
+        })
 
-    // it('should be able to establish a simple-peer WebRTC connection using a real Firebase channel', async () => {
-    //     firebase.initializeApp({
-    //         apiKey: "AIzaSyBt3A84YbnFjQnSppOJhgl5ybaKRNOVCpY",
-    //         authDomain: "storex-89b19.firebaseapp.com",
-    //         databaseURL: "https://storex-89b19.firebaseio.com",
-    //         projectId: "storex-89b19",
-    //         storageBucket: "storex-89b19.appspot.com",
-    //         messagingSenderId: "432461674343",
-    //     })
-    //     const createTransport = () => new FirebaseSignalTransport({ database: firebase.database(), collectionName: 'signalling' })
-    //     const transports : [SignalTransport, SignalTransport] = [
-    //         createTransport(),
-    //         createTransport(),
-    //     ]
-    //     await runSimplePeerTest({ transports })
+        // it('should be able to establish a simple-peer WebRTC connection using a real Firebase channel', async () => {
+        //     firebase.initializeApp({
+        //         apiKey: "AIzaSyBt3A84YbnFjQnSppOJhgl5ybaKRNOVCpY",
+        //         authDomain: "storex-89b19.firebaseapp.com",
+        //         databaseURL: "https://storex-89b19.firebaseio.com",
+        //         projectId: "storex-89b19",
+        //         storageBucket: "storex-89b19.appspot.com",
+        //         messagingSenderId: "432461674343",
+        //     })
+        //     const createTransport = () => new FirebaseSignalTransport({ database: firebase.database(), collectionName: 'signalling' })
+        //     const transports : [SignalTransport, SignalTransport] = [
+        //         createTransport(),
+        //         createTransport(),
+        //     ]
+        //     await runSimplePeerTest({ transports })
     // })
-})
+    })
+}
