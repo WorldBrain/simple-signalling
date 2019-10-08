@@ -1,6 +1,6 @@
 {
   "name": "simple-signalling",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "license": "MIT",
   "description": "Library for WebRTC signalling through different transports",
   "main": "lib/index.js",
