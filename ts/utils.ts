@@ -1,28 +1,28 @@
-import { default as createResolvable, Resolvable } from '@josephg/resolvable'
+import { default as createResolvable } from '@josephg/resolvable'
 import { SignalDeviceId } from './types';
 
 export class MessageQueue<MessageType> {
-    private messages : MessageType[] = []
-    private pushResolvable = createResolvable()
-    
-    async waitForMessage() : Promise<void> {
+    private messages: MessageType[] = []
+    private pushResolvable = createResolvable<unknown>()
+
+    async waitForMessage(): Promise<void> {
         if (!this.messages.length) {
             await this.pushResolvable
         }
     }
 
-    pushMessage(message : MessageType) : void {
+    pushMessage(message: MessageType): void {
         this.messages.push(message)
-        this.pushResolvable.resolve()
+        this.pushResolvable.resolve(null)
         this.pushResolvable = createResolvable()
     }
-    
-    popMessage() : MessageType | undefined {
+
+    popMessage(): MessageType | undefined {
         const message = this.messages.shift()
         return message
     }
 
-    peekMessage() : MessageType | undefined {
+    peekMessage(): MessageType | undefined {
         return this.messages[0]
     }
 
@@ -32,6 +32,6 @@ export class MessageQueue<MessageType> {
     }
 }
 
-export function getReceiverDeviceId(senderDeviceId : SignalDeviceId) : SignalDeviceId {
+export function getReceiverDeviceId(senderDeviceId: SignalDeviceId): SignalDeviceId {
     return senderDeviceId === 'first' ? 'second' : 'first'
 }
