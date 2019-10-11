@@ -4,32 +4,32 @@ import { SignalChannel } from "./types";
 
 export interface SimplePeerSignallingEvents {
     start: {},
-    receivedIncomingSignal: { signal : any },
-    processingIncomingSignal: { signal : any },
-    queuingOutgoingSignal: { signal : any },
-    sendingOutgoingSignal: { signal : any },
+    receivedIncomingSignal: { signal: any },
+    processingIncomingSignal: { signal: any },
+    queuingOutgoingSignal: { signal: any },
+    sendingOutgoingSignal: { signal: any },
     connected: {},
 }
 
 export type SimplePeerSignallingReporter =
     <EventName extends keyof SimplePeerSignallingEvents>
-    (eventName : EventName, event : SimplePeerSignallingEvents[EventName]) => void
+        (eventName: EventName, event: SimplePeerSignallingEvents[EventName]) => void
 
-export async function signalSimplePeer(options : {
-    signalChannel : SignalChannel, simplePeer : SimplePeer.Instance,
-    reporter? : SimplePeerSignallingReporter
-}) : Promise<void> {
-    const reporter = options.reporter || (() => {})
+export async function signalSimplePeer(options: {
+    signalChannel: SignalChannel, simplePeer: SimplePeer.Instance,
+    reporter?: SimplePeerSignallingReporter
+}): Promise<void> {
+    const reporter = options.reporter || (() => { })
     reporter('start', {})
 
-    const waitUntilConnected = createResolvable()
-    options.simplePeer.on('signal', (data : any) => {
+    const waitUntilConnected = createResolvable<unknown>()
+    options.simplePeer.on('signal', (data: any) => {
         reporter('sendingOutgoingSignal', { signal: data })
         options.signalChannel.sendMessage(JSON.stringify(data))
     })
     options.simplePeer.on('connect', () => {
         reporter('connected', {})
-        waitUntilConnected.resolve()
+        waitUntilConnected.resolve(null)
     })
     options.signalChannel.events.on('signal', ({ payload }) => {
         const signal = JSON.parse(payload)
@@ -73,7 +73,7 @@ export async function signalSimplePeer(options : {
     //             // console.log('connected')
     //             break
     //         }
-            
+
     //         if (next.type === 'incomingSignal') {
     //             const signal = incomingSignalListener.messageQueue.popMessage()!
     //             reporter('processingIncomingSignal', { signal })
