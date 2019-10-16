@@ -31,6 +31,9 @@ export async function signalSimplePeer(options: {
         reporter('connected', {})
         waitUntilConnected.resolve(null)
     })
+    options.simplePeer.on('error', (err) => {
+        waitUntilConnected.reject(err)
+    })
     options.signalChannel.events.on('signal', ({ payload }) => {
         const signal = JSON.parse(payload)
         reporter('receivedIncomingSignal', { signal })
