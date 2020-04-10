@@ -8,29 +8,30 @@ import { getReceiverDeviceId } from "./utils";
 // security issues and memory leaks. Have fun!
 
 type SignalBufferEvents = TypedEmitter<{
-    signal : (event : { payload : string, deviceId : SignalDeviceId }) => void
+    signal: (event: { payload: string, deviceId: SignalDeviceId }) => void
+    userMessage: (event: { payload: string, deviceId: SignalDeviceId }) => void
 }>
 
 interface SignalBuffer {
     // message: {channelId: number, payload: string} | null
-    events : SignalBufferEvents
-    messages : {[deviceId in 'first' | 'second'] : string[]}
+    events: SignalBufferEvents
+    messages: { [deviceId in 'first' | 'second']: Array<string | { userMessage: string }> }
 }
 
 export class MemorySignalTransportManager {
     public channelCount = 0
-    private buffers : SignalBuffer[] = []
-    
-    createTransport() : MemorySignalTransport {
+    private buffers: SignalBuffer[] = []
+
+    createTransport(): MemorySignalTransport {
         return new MemorySignalTransport({ manager: this })
     }
 
-    _createBuffer() : { initialMessage : string } {
+    _createBuffer(): { initialMessage: string } {
         this.buffers.push({ events: new EventEmitter() as SignalBufferEvents, messages: { first: [], second: [] } })
         return { initialMessage: `memory:${this.buffers.length - 1}` }
     }
 
-    _getBuffer(options : { initialMessage : string }) : SignalBuffer {
+    _getBuffer(options: { initialMessage: string }): SignalBuffer {
         const [type, channelIndex] = options.initialMessage.split(':')
         if (type !== 'memory') {
             throw new Error(`Tried to open a MemorySignalChannel with faulty initialMessage: ${options.initialMessage}`)
@@ -41,14 +42,14 @@ export class MemorySignalTransportManager {
 }
 
 export class MemorySignalTransport implements SignalTransport {
-    constructor(private options : { manager : MemorySignalTransportManager }) {
+    constructor(private options: { manager: MemorySignalTransportManager }) {
     }
 
-    async allocateChannel() : Promise<{ initialMessage : string }> {
+    async allocateChannel(): Promise<{ initialMessage: string }> {
         return this.options.manager._createBuffer()
     }
 
-    async openChannel(options : { deviceId : SignalDeviceId, initialMessage? : string }) : Promise<SignalChannel> {
+    async openChannel(options: { deviceId: SignalDeviceId, initialMessage?: string }): Promise<SignalChannel> {
         const buffer = this.options.manager._getBuffer({ initialMessage: options.initialMessage! });
         return new MemorySignalChannel({ buffer, deviceId: options.deviceId })
     }
@@ -57,12 +58,16 @@ export class MemorySignalTransport implements SignalTransport {
 export class MemorySignalChannel implements SignalChannel {
     events = new EventEmitter() as SignalChannelEvents
 
-    constructor(private options : { buffer : SignalBuffer, deviceId : SignalDeviceId }) {
+    constructor(private options: { buffer: SignalBuffer, deviceId: SignalDeviceId }) {
     }
 
     async connect() {
         for (const message of this.options.buffer.messages[this.options.deviceId]) {
-            this.events.emit('signal', { payload: message })
+            if (typeof message === 'string') {
+                this.events.emit('signal', { payload: message })
+            } else {
+                this.events.emit('userMessage', { message: message.userMessage })
+            }
         }
 
         this.options.buffer.events.on('signal', ({ payload, deviceId: channelId }) => {
@@ -70,9 +75,14 @@ export class MemorySignalChannel implements SignalChannel {
                 this.events.emit('signal', { payload })
             }
         })
+        this.options.buffer.events.on('userMessage', ({ payload, deviceId: channelId }) => {
+            if (channelId !== this.options.deviceId) {
+                this.events.emit('userMessage', { message: payload })
+            }
+        })
     }
 
-    async sendMessage(payload : string, options? : SignalMessageOptions) : Promise<void> {
+    async sendMessage(payload: string, options?: SignalMessageOptions): Promise<void> {
         const { buffer } = this.options
         buffer.messages[getReceiverDeviceId(this.options.deviceId)].push(payload)
 
@@ -82,7 +92,17 @@ export class MemorySignalChannel implements SignalChannel {
         })
     }
 
-    async release() : Promise<void> {
+    async sendUserMessage(userMessage: string): Promise<void> {
+        const { buffer } = this.options
+        buffer.messages[getReceiverDeviceId(this.options.deviceId)].push({ userMessage })
+
+        buffer.events.emit('userMessage', {
+            payload: userMessage,
+            deviceId: this.options.deviceId
+        })
+    }
+
+    async release(): Promise<void> {
         // Leak some memory, please  :)
     }
 }
