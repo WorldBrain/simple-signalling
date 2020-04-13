@@ -3,12 +3,12 @@ import SimplePeer from 'simple-peer'
 import { SignalChannel } from "./types";
 
 export interface SimplePeerSignallingEvents {
-    start: {},
+    startSignalling: {},
     receivedIncomingSignal: { signal: any },
     processingIncomingSignal: { signal: any },
     queuingOutgoingSignal: { signal: any },
     sendingOutgoingSignal: { signal: any },
-    connected: {},
+    completedSignalling: {},
 }
 
 export type SimplePeerSignallingReporter =
@@ -20,7 +20,7 @@ export async function signalSimplePeer(options: {
     reporter?: SimplePeerSignallingReporter
 }): Promise<void> {
     const reporter = options.reporter || (() => { })
-    reporter('start', {})
+    reporter('startSignalling', {})
 
     const waitUntilConnected = createResolvable<unknown>()
     options.simplePeer.on('signal', (data: any) => {
@@ -28,7 +28,7 @@ export async function signalSimplePeer(options: {
         options.signalChannel.sendMessage(JSON.stringify(data))
     })
     options.simplePeer.on('connect', () => {
-        reporter('connected', {})
+        reporter('completedSignalling', {})
         waitUntilConnected.resolve(null)
     })
     options.simplePeer.on('error', (err) => {
@@ -37,7 +37,6 @@ export async function signalSimplePeer(options: {
     options.signalChannel.events.on('signal', ({ payload }) => {
         const signal = JSON.parse(payload)
         reporter('receivedIncomingSignal', { signal })
-        reporter('processingIncomingSignal', { signal })
         options.simplePeer.signal(signal)
     })
 
