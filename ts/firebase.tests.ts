@@ -6,7 +6,7 @@ export async function createSignallingFirebaseTestApp() {
     const databaseName = `test-${Date.now()}`
     const app = firebase.initializeTestApp({
         databaseName
-    })
+    }) as any
     // console.log(JSON.stringify({
     //     "rules": {
     //         [collectionName]: getSignallingRules()

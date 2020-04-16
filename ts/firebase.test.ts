@@ -10,7 +10,7 @@ if (process.env.RUN_FIREBASE_TESTS === 'true') {
 
                 return {
                     signalTransportFactory: () => {
-                        return new FirebaseSignalTransport({ database: app.database(), collectionName })
+                        return new FirebaseSignalTransport({ database: app.database() as any, collectionName })
                     },
                     cleanup: async () => {
                         // await app.auth().signOut()

@@ -1,14 +1,13 @@
 import expect from 'expect'
 const wrtc = require('wrtc')
 import Peer from 'simple-peer'
-import * as firebase from 'firebase'
 import { MemorySignalTransportManager } from './memory';
 import { signalSimplePeer } from './simple-peer';
 import { SignalTransport } from './types';
 import { createSignallingFirebaseTestApp } from './firebase.tests';
 import { FirebaseSignalTransport } from './firebase';
 
-async function runSimplePeerTest(options : { transports : [SignalTransport, SignalTransport] }) {
+async function runSimplePeerTest(options: { transports: [SignalTransport, SignalTransport] }) {
     const { transports } = options
     const { initialMessage } = await transports[0].allocateChannel()
     const channels = [
@@ -25,7 +24,7 @@ async function runSimplePeerTest(options : { transports : [SignalTransport, Sign
         signalSimplePeer({ signalChannel: channels[0], simplePeer: peers[0] }),
         signalSimplePeer({ signalChannel: channels[1], simplePeer: peers[1] }),
     ])
-    
+
     const peerOneData = new Promise<any>(resolve => {
         peers[0].once('data', data => {
             resolve(data)
@@ -39,15 +38,15 @@ if (process.env.RUN_FIREBASE_TESTS === 'true') {
     describe('simple-peer connection initiation', () => {
         it('should be able to establish a simple-peer WebRTC connection using an in-memory signal channel', async () => {
             const transportManager = new MemorySignalTransportManager()
-            const transports : [SignalTransport, SignalTransport] = [transportManager.createTransport(), transportManager.createTransport()]
+            const transports: [SignalTransport, SignalTransport] = [transportManager.createTransport(), transportManager.createTransport()]
             await runSimplePeerTest({ transports })
         })
-        
+
         it('should be able to establish a simple-peer WebRTC connection using an emulated Firebase channel', async () => {
             const { app: firebaseApp, collectionName } = await createSignallingFirebaseTestApp()
             try {
                 const createTransport = () => new FirebaseSignalTransport({ database: firebaseApp.database(), collectionName })
-                const transports : [SignalTransport, SignalTransport] = [
+                const transports: [SignalTransport, SignalTransport] = [
                     createTransport(),
                     createTransport(),
                 ]
@@ -72,6 +71,6 @@ if (process.env.RUN_FIREBASE_TESTS === 'true') {
         //         createTransport(),
         //     ]
         //     await runSimplePeerTest({ transports })
-    // })
+        // })
     })
 }
