@@ -27,14 +27,14 @@
     "typed-emitter": "^0.1.0"
   },
   "devDependencies": {
-    "@firebase/testing": "^0.11.4",
+    "@firebase/testing": "^0.19.1",
     "@types/expect": "^1.20.4",
     "@types/mocha": "^2.2.44",
     "@types/node": "^10.12.11",
     "@types/simple-peer": "^6.1.6",
     "expect": "^23.5.0",
-    "firebase": "^6.2.4",
-    "firebase-tools": "^7.0.2",
+    "firebase": "^7.14.1",
+    "firebase-tools": "^8.1.1",
     "mocha": "^4.0.1",
     "simple-peer": "^9.4.0",
     "ts-node": "^7.0.1",
