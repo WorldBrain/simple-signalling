@@ -33,7 +33,7 @@
     "@types/node": "^10.12.11",
     "@types/simple-peer": "^6.1.6",
     "expect": "^23.5.0",
-    "firebase": "^6.2.4",
+    "firebase": "^8.2.3",
     "firebase-tools": "^7.0.2",
     "mocha": "^4.0.1",
     "simple-peer": "^9.4.0",
